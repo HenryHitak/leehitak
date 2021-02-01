@@ -75,7 +75,85 @@
 - 02월03일 부터 오라클 이론 단원06 진도 시작.
 - C언어 기초: 출석수업시 바로 IoT실습에 들어가기 위해서 구름IDE에서 C언어 실습연습.
 - --------------------------------------------------------------------
-
+#### 20210202(화) 작업예정
+- 사전작업: JUnit에서 더미데이터 입력시 시간 초단위로 입력 부분 처리예정.
+- 사전작업: spring5-프로젝트 신규레포지토리 git과 연동작업예정.
+- --------------------------------------------------------------------
+- 스프링MVC프로젝트 스프링버전 5.2.5 마이그레이션(버전 업그레이드)
+- 위 스프링버전 마이그레이션이 필요한이유: 자바버전 2.x 보편화 되었을때, 톰캣버전 9.x 보편화 되었을때, 등등 이유가 있음(필수)
+- kimilguk프로젝트를 그대로 두고, spring5-kimilguk이름으로 폴더를 복사해서 프로젝트 생성됨
+- kimilguk.herokuapp.com(스프링4.x), spring5-kimilguk.herokuapp.com(스프링5.x)
+- --------------------------------------------------------------------
+- 02월03일 부터 오라클 이론 단원06 진도 시작.
+- C언어 기초: 출석수업시 바로 IoT실습에 들어가기 위해서 구름IDE에서 C언어 실습연습.
+- --------------------------------------------------------------------
+#### 20210201(월) 작업
+- 시작전1:replyMapper 마무리: 댓글 1개등록 후 삭제 후 다시등록시 페이징이 사라지는 문제 처리OK.
+- board_view.jsp의 삭제부분 $("#div_reply").empty(); 아래 코드로 수정.
+- $("#div_reply").find("div").not(".pagination").empty(); ->대신에 아래처럼 해도됨
+```
+- $("#div_reply").html('<div class="pagination justify-content-center"><ul class="pagination pageVO"></ul></div>');
+```
+- 시작전2:조회수 카운트도 필드값 null 때문에 증가가 않되는 부분 처리OK(NVL추가 아래).
+- 오라클 전용 수정할 쿼리: set view_count = NVL(view_count,0) + 1
+- 쿼리널체크: Mysql=ifnull(v1,v2),MSsql+Hsql=isnull(v1,v2)
+- 쿼리널체크: Oracle=nvl(v1,v2), NVL(Null VaLue)체크 함수.
+- 시작전3:멤버 페이지 페이징 쿼리부분에서 ORDER BY 부분제거 취소 후 더미데이터의 reg_date 수정.
+- 시작전4:게시판,댓글 페이징 부분은 정렬방식을 REG_DATE에서 BNO로 변경 취소.
+- 위3,4번 처리하는 대신 더미데이터만드는 프로시저에서 reg_date 현재시간기준 1초씩 증가하도록 처리 order by 가 제대로 작동하도록 처리OK.
+- 시작전: 더미데이터 만드는 프로시저에 REG_DATE항목을 1초 단위로 증가될 수 있도록 수정한 후 다시 더미데이터 생성한다.
+```
+create or replace PROCEDURE      "PROC_MEMBER_INSERT" 
+(
+  P_COUNT IN NUMBER 
+) AS 
+BEGIN
+  -- TRUNCATE table TBL_MEMBER; 삭제시 자동커밋
+  -- 실행방법: CALL PROC_MEMBER_INSERT(100);
+  FOR i IN 1..P_COUNT LOOP
+       IF(i=P_COUNT) THEN
+            INSERT INTO TBL_MEMBER
+            (user_id,user_pw,user_name,enabled,levels,reg_date,update_date)
+            VALUES
+            ('admin','$2a$10$kIqR/PTloYan/MRNiEsy6uYO6OCHVmAKR4kflVKQkJ345nqTiuGeO'
+            ,'관리자',1,'ROLE_ADMIN',sysdate + (1/24/60/60)*i,sysdate + (1/24/60/60)*i);
+        ELSE
+            INSERT INTO TBL_MEMBER
+            (user_id,user_pw,user_name,enabled,levels,reg_date,update_date)
+            VALUES
+            (concat('user',i) ,'$2a$10$kIqR/PTloYan/MRNiEsy6uYO6OCHVmAKR4kflVKQkJ345nqTiuGeO'
+            ,'사용자',1,'ROLE_USER',sysdate + (1/24/60/60)*i,sysdate + (1/24/60/60)*i);
+        END IF;
+      END LOOP;
+  commit;
+END PROC_MEMBER_INSERT;
+create or replace PROCEDURE      "PROC_BOARD_INSERT" 
+(
+  P_BOARD_TYPE IN VARCHAR2 
+, P_COUNT IN NUMBER 
+) AS 
+BEGIN
+  -- TRUNCATE table TBL_REPLY; 삭제시 자동커밋
+  -- TRUNCATE table TBL_ATTACH; 삭제시 자동커밋
+  -- DELETE FROM TBL_BOARD WHERE 1 = 1; 삭제시 커밋 필요 + 시퀸스 초기화 필요(초기값만 1로 바꾸면됨)
+  -- 실행방법;쿼리에디터에서 CALL PROC_BOARD_INSERT('notice',50);
+  FOR i IN 1..P_COUNT LOOP
+        INSERT INTO TBL_BOARD
+        (bno,board_type,title,content,writer,reg_date,update_date) 
+        VALUES
+        (SEQ_BNO.nextval,P_BOARD_TYPE,'게시물테스트','게시물내용테스트','관리자',SYSDATE + (1/24/60/60)*i,SYSDATE + (1/24/60/60)*i);
+      END LOOP;
+commit;
+END PROC_BOARD_INSERT;
+```
+- oracle폴더의 memberMapper, replyMapper, boardTypeMapper 3개파일 마이그레이션 OK.
+- 수정1: now() -> sysdate (현재일시구하기)
+- 수정2: limit 사용된 페이징 쿼리 -> 제거 후 기능변경(ROWNUM 키워드 사용, concat() -> ||연결문자사용)
+- 수정3: limit 사용된 조회시 최근게시물 1개 뽑아낼때 -> 제거 후 기능변경(ROWNUM 예약어 사용)
+- 수정4: < 부등호가 들어가 있는 쿼리는 <![CDATA[ 부등호가 있는 쿼리 ]]> 이렇게 CDATA로 처리.
+- 수정5: Insert의 AI(자동증가)부분 처리:마이바티스의 selectKey태그를 이용해서 시퀸스처리
+- --------------------------------------------------------------------
+- 오늘 종료전 2월3일(수2교시) 다음카페에 제출하실 포트폴리오 구글 워드 문서 배포OK.
 #### 20210129(금) 작업
 - 이론 단원 05단원 까지 진도OK.
 - 오라클 전용 쿼리에서 3개이상의 문자열 연결할때 파이프라인 특수문자를 사용: ||
